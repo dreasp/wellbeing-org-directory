@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Org Directory</title>
+<style>
+  :root {
+    --bg: #F6F5F1;
+    --ink: #232823;
+    --ink-soft: #5C645C;
+    --line: #DAD8D0;
+    --accent: #3D5C4E;
+    --accent-soft: #E4EAE5;
+    --card: #FFFFFF;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Iowan Old Style', 'Georgia', serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono {
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  }
+
+  header {
+    padding: 48px 32px 28px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  header h1 {
+    margin: 0 0 6px;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  header p {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 14px;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 24px;
+    margin-top: 18px;
+  }
+
+  .stat {
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  .stat b {
+    color: var(--ink);
+    font-size: 15px;
+  }
+
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px;
+  }
+
+  .filters {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  }
+
+  input, select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    border-radius: 3px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--ink);
+  }
+
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .count-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-bottom: 12px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--line);
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+    font-weight: 500;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--line);
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--line);
+  }
+
+  tbody tr:hover {
+    background: var(--accent-soft);
+  }
+
+  tbody td {
+    padding: 12px 8px;
+    font-size: 14px;
+    vertical-align: top;
+  }
+
+  .org-name {
+    font-weight: 600;
+  }
+
+  .org-meta {
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    margin-top: 2px;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 11px;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  }
+
+  a.site-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 13px;
+  }
+
+  a.site-link:hover { text-decoration: underline; }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--ink-soft);
+  }
+
+  .pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    padding: 28px 0;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 13px;
+  }
+
+  .pagination button {
+    padding: 8px 14px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ink);
+  }
+
+  .pagination button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .pagination button:not(:disabled):hover {
+    border-color: var(--accent);
+  }
+
+  .loading {
+    text-align: center;
+    padding: 60px;
+    color: var(--ink-soft);
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 13px;
+  }
+
+  @media (max-width: 720px) {
+    .filters { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Org Directory</h1>
+  <p>Mental health organizations, hospitals, clinics &amp; social services — searchable registry</p>
+  <div class="stats-row" id="statsRow"></div>
+</header>
+
+<main>
+  <div class="filters">
+    <div class="field">
+      <label for="search">Search name</label>
+      <input type="text" id="search" placeholder="e.g. Mind, Crisis, Counselling...">
+    </div>
+    <div class="field">
+      <label for="country">Country</label>
+      <select id="country">
+        <option value="">All countries</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="category">Category</label>
+      <select id="category">
+        <option value="">All categories</option>
+        <option value="mental health">Mental health</option>
+        <option value="psychiatric">Psychiatric</option>
+        <option value="counsel">Counselling</option>
+        <option value="social">Social work</option>
+        <option value="crisis">Crisis services</option>
+        <option value="addiction">Addiction/substance</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="city">City</label>
+      <input type="text" id="city" placeholder="e.g. London, Toronto...">
+    </div>
+  </div>
+
+  <div class="count-line">
+    <span id="resultCount">Loading...</span>
+    <span id="pageInfo"></span>
+  </div>
+
+  <div id="tableContainer"></div>
+
+  <div class="pagination" id="paginationContainer" style="display:none;">
+    <button id="prevBtn">&larr; Previous</button>
+    <span id="pageLabel"></span>
+    <button id="nextBtn">Next &rarr;</button>
+  </div>
+</main>
+
+<script>
+  // Live backend URL on Render.
+  const API_BASE = 'https://wellbeing-org-directory.onrender.com';
+
+  let currentPage = 1;
+  let debounceTimer = null;
+
+  async function loadStats() {
+    try {
+      const res = await fetch(`${API_BASE}/api/stats`);
+      const data = await res.json();
+      const statsRow = document.getElementById('statsRow');
+      statsRow.innerHTML = data.map(s =>
+        `<div class="stat"><b>${Number(s.count).toLocaleString()}</b> ${s.country}</div>`
+      ).join('');
+
+      const countrySelect = document.getElementById('country');
+      data.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.country;
+        opt.textContent = s.country;
+        countrySelect.appendChild(opt);
+      });
+    } catch (err) {
+      console.error('Failed to load stats', err);
+    }
+  }
+
+  function buildQuery() {
+    const params = new URLSearchParams();
+    const search = document.getElementById('search').value.trim();
+    const country = document.getElementById('country').value;
+    const category = document.getElementById('category').value;
+    const city = document.getElementById('city').value.trim();
+
+    if (search) params.set('search', search);
+    if (country) params.set('country', country);
+    if (category) params.set('category', category);
+    if (city) params.set('city', city);
+    params.set('page', currentPage);
+    params.set('limit', 30);
+
+    return params.toString();
+  }
+
+  async function loadResults() {
+    const container = document.getElementById('tableContainer');
+    container.innerHTML = '<div class="loading">Loading results...</div>';
+
+    try {
+      const query = buildQuery();
+      const res = await fetch(`${API_BASE}/api/organizations?${query}`);
+      const data = await res.json();
+
+      document.getElementById('resultCount').textContent =
+        `${data.total.toLocaleString()} organization${data.total === 1 ? '' : 's'} found`;
+      document.getElementById('pageInfo').textContent =
+        `Page ${data.page} of ${data.totalPages || 1}`;
+
+      if (data.organizations.length === 0) {
+        container.innerHTML = '<div class="empty-state">No organizations match these filters. Try broadening your search.</div>';
+        document.getElementById('paginationContainer').style.display = 'none';
+        return;
+      }
+
+      const rows = data.organizations.map(org => `
+        <tr>
+          <td>
+            <div class="org-name">${escapeHtml(org.name)}</div>
+            <div class="org-meta">${escapeHtml(org.registry_id || '')} &middot; ${escapeHtml(org.registry_source || '')}</div>
+          </td>
+          <td><span class="badge">${escapeHtml(org.country)}</span></td>
+          <td>${escapeHtml(org.city || org.region || '—')}</td>
+          <td>${org.website ? `<a class="site-link" href="${escapeHtml(org.website)}" target="_blank" rel="noopener">Visit site &rarr;</a>` : '<span class="org-meta">No website found</span>'}</td>
+        </tr>
+      `).join('');
+
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Organization</th>
+              <th>Country</th>
+              <th>Location</th>
+              <th>Website</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+
+      const pagination = document.getElementById('paginationContainer');
+      pagination.style.display = 'flex';
+      document.getElementById('pageLabel').textContent = `${data.page} / ${data.totalPages}`;
+      document.getElementById('prevBtn').disabled = data.page <= 1;
+      document.getElementById('nextBtn').disabled = data.page >= data.totalPages;
+
+    } catch (err) {
+      container.innerHTML = '<div class="empty-state">Could not reach the API. Is the server running?</div>';
+      console.error(err);
+    }
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>"']/g, m => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[m]));
+  }
+
+  function debouncedReload() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      currentPage = 1;
+      loadResults();
+    }, 350);
+  }
+
+  document.getElementById('search').addEventListener('input', debouncedReload);
+  document.getElementById('city').addEventListener('input', debouncedReload);
+  document.getElementById('country').addEventListener('change', debouncedReload);
+  document.getElementById('category').addEventListener('change', debouncedReload);
+
+  document.getElementById('prevBtn').addEventListener('click', () => {
+    if (currentPage > 1) { currentPage--; loadResults(); }
+  });
+  document.getElementById('nextBtn').addEventListener('click', () => {
+    currentPage++; loadResults();
+  });
+
+  loadStats();
+  loadResults();
+</script>
+
+</body>
+</html>
