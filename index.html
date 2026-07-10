@@ -212,6 +212,29 @@
     border-color: var(--accent);
   }
 
+  [contenteditable="true"] {
+    cursor: text;
+    transition: background 0.3s;
+    border-radius: 2px;
+  }
+
+  [contenteditable="true"]:hover {
+    background: var(--accent-soft);
+  }
+
+  [contenteditable="true"]:focus {
+    outline: 2px solid var(--accent);
+    background: var(--card);
+  }
+
+  .edit-hint {
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 12px;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    padding-top: 16px;
+  }
+
   .loading {
     text-align: center;
     padding: 60px;
@@ -343,14 +366,14 @@
       }
 
       const rows = data.organizations.map(org => `
-        <tr>
+        <tr data-id="${org.id}">
           <td>
-            <div class="org-name">${escapeHtml(org.name)}</div>
+            <div class="org-name" contenteditable="true" data-field="name" data-id="${org.id}">${escapeHtml(org.name)}</div>
             <div class="org-meta">${escapeHtml(org.registry_id || '')} &middot; ${escapeHtml(org.registry_source || '')}</div>
           </td>
           <td><span class="badge">${escapeHtml(org.country)}</span></td>
-          <td>${escapeHtml(org.city || org.region || '—')}</td>
-          <td>${org.website ? `<a class="site-link" href="${escapeHtml(org.website)}" target="_blank" rel="noopener">Visit site &rarr;</a>` : '<span class="org-meta">No website found</span>'}</td>
+          <td contenteditable="true" data-field="city" data-id="${org.id}">${escapeHtml(org.city || org.region || '')}</td>
+          <td contenteditable="true" data-field="website" data-id="${org.id}" class="editable-site">${escapeHtml(org.website || 'Click to add website')}</td>
         </tr>
       `).join('');
 
@@ -366,7 +389,10 @@
           </thead>
           <tbody>${rows}</tbody>
         </table>
+        <p class="edit-hint">Click any name, location, or website to edit it directly. Changes save automatically when you click away.</p>
       `;
+
+      attachEditListeners();
 
       const pagination = document.getElementById('paginationContainer');
       pagination.style.display = 'flex';
@@ -378,6 +404,38 @@
       container.innerHTML = '<div class="empty-state">Could not reach the API. Is the server running?</div>';
       console.error(err);
     }
+  }
+
+  function attachEditListeners() {
+    document.querySelectorAll('[contenteditable="true"]').forEach(cell => {
+      cell.addEventListener('blur', async () => {
+        const id = cell.dataset.id;
+        const field = cell.dataset.field;
+        const value = cell.textContent.trim();
+
+        try {
+          const res = await fetch(`${API_BASE}/api/organizations/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ [field]: value })
+          });
+          if (res.ok) {
+            cell.style.background = 'var(--accent-soft)';
+            setTimeout(() => { cell.style.background = ''; }, 600);
+          }
+        } catch (err) {
+          console.error('Failed to save edit', err);
+        }
+      });
+
+      // Enter key saves and moves on, instead of adding a line break
+      cell.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          cell.blur();
+        }
+      });
+    });
   }
 
   function escapeHtml(str) {

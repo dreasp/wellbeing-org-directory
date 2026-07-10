@@ -1,15 +1,21 @@
 /**
- * US Mental Health Org Finder
- * Searches ProPublica's Nonprofit Explorer API (free, no key required) for
- * US-registered nonprofits related to mental health.
+ * US Healthcare & Human Services Org Finder
+ * Searches ProPublica's Nonprofit Explorer using NTEE major category codes
+ * instead of name keywords - catches hospitals and health systems regardless
+ * of naming (e.g. "Kaiser Permanente Foundation" wouldn't match a "mental
+ * health" keyword search, but it falls under NTEE major category 4 - Health).
+ *
+ * NTEE major categories used:
+ *   4 = Health (includes hospitals, clinics, mental health, disease-specific)
+ *   5 = Human Services (includes social work, crisis services)
+ *
+ * No API key required - this is a fully open public API.
  *
  * Setup:
  * 1. Run: npm install axios
  * 2. Run: node find-companies-us.js
  *
  * Output: results-us.csv
- *
- * No API key needed - this is a fully open public API.
  */
 
 const axios = require('axios');
@@ -17,103 +23,87 @@ const fs = require('fs');
 
 const BASE_URL = 'https://projects.propublica.org/nonprofits/api/v2';
 
-// Keywords to search for in org name/city
-const KEYWORDS = [
-  'mental health',
-  'behavioral health',
-  'counseling',
-  'psychiatric',
-  'wellbeing',
-  'wellness',
-  'psychotherapy',
-  'psychiatric hospital',
-  'behavioral health hospital',
-  'mental health clinic',
-  'counseling clinic',
-  'clinical social work',
-  'social services',
-  'social work agency',
-  'crisis center',
-  'crisis intervention',
-  'addiction treatment',
-  'substance abuse treatment',
-  'therapy center',
-  'psychological services'
+// US states to search across, since results are capped per query
+const STATES = [
+  'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
+  'KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
+  'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT',
+  'VA','WA','WV','WI','WY','DC'
 ];
 
-// NTEE codes for mental health / crisis intervention categories (IRS classification)
-// F20-F99 = Mental Health, Crisis Intervention
-const RELEVANT_NTEE_PREFIX = 'F';
+const NTEE_CATEGORIES = { 4: 'Health', 5: 'Human Services' };
 
-async function searchOrgs(keyword, page = 0) {
-  try {
-    const response = await axios.get(`${BASE_URL}/search.json`, {
-      params: { q: keyword, page }
-    });
-    return response.data;
-  } catch (err) {
-    console.error(`Error searching "${keyword}" page ${page}:`, err.response?.data || err.message);
-    return null;
-  }
-}
+async function searchByNteeAndState(nteeCode, state) {
+  const results = [];
+  let page = 0;
 
-function isRelevant(org) {
-  // Keep active-looking orgs (ProPublica doesn't have a clean "active" flag like
-  // Companies House, so we filter by NTEE code where available, otherwise keep)
-  if (org.ntee_code && !org.ntee_code.startsWith(RELEVANT_NTEE_PREFIX)) {
-    // Still keep it if the name obviously matches - NTEE codes aren't always
-    // filled in consistently, so don't over-filter on this alone
-    return true;
+  while (true) {
+    try {
+      const response = await axios.get(`${BASE_URL}/search.json`, {
+        params: {
+          'ntee[id]': nteeCode,
+          'state[id]': state,
+          page
+        }
+      });
+
+      const items = response.data.organizations || [];
+      if (items.length === 0) break;
+
+      results.push(...items);
+      page++;
+
+      if (page >= (response.data.num_pages || 1)) break;
+      if (page >= 15) break; // cap per state/category combo (25 results/page now)
+
+      await new Promise(r => setTimeout(r, 150));
+    } catch (err) {
+      console.error(`Error searching NTEE ${nteeCode} / ${state}:`, err.response?.data || err.message);
+      break;
+    }
   }
-  return true;
+
+  return results;
 }
 
 async function main() {
-  const seen = new Map(); // dedupe by ein (Employer Identification Number)
+  const seen = new Map();
 
-  for (const keyword of KEYWORDS) {
-    console.log(`Searching: "${keyword}"...`);
-    let page = 0;
-    let totalPages = 1;
-    let foundThisKeyword = 0;
+  for (const [nteeCode, label] of Object.entries(NTEE_CATEGORIES)) {
+    console.log(`\nSearching NTEE category ${nteeCode} (${label}) across all states...`);
+    let categoryTotal = 0;
 
-    while (page < totalPages) {
-      const data = await searchOrgs(keyword, page);
-      if (!data || !data.organizations) break;
+    for (const state of STATES) {
+      const items = await searchByNteeAndState(nteeCode, state);
+      let newCount = 0;
 
-      totalPages = data.num_pages || 1;
-
-      for (const org of data.organizations) {
-        if (!isRelevant(org)) continue;
+      for (const org of items) {
         if (!seen.has(org.ein)) {
           seen.set(org.ein, {
             name: org.name,
             ein: org.ein,
             city: org.city || '',
-            state: org.state || '',
+            state: org.state || state,
             ntee_code: org.ntee_code || '',
+            category: label,
             subseccd: org.subseccd || '',
-            latest_income: org.income_amount || ''
+            latest_income: org.income_amount || 0
           });
-          foundThisKeyword++;
+          newCount++;
         }
       }
-
-      page++;
-      // Cap at 10 pages per keyword (1000 results) to keep this reasonable
-      if (page >= 10) break;
-      await new Promise(r => setTimeout(r, 200));
+      categoryTotal += newCount;
+      process.stdout.write(`  ${state}: +${newCount}  `);
     }
-
-    console.log(`  Found ${foundThisKeyword} new unique orgs`);
+    console.log(`\n  Total new for ${label}: ${categoryTotal}`);
   }
 
   const rows = Array.from(seen.values());
   console.log(`\nTotal unique organizations found: ${rows.length}`);
 
-  const header = 'Name,EIN,City,State,NTEE Code,Subsection Code,Latest Income\n';
+  const header = 'Name,EIN,City,State,NTEE Code,Category,Subsection Code,Latest Income\n';
   const csv = header + rows.map(r =>
-    `"${(r.name || '').replace(/"/g, '""')}","${r.ein}","${r.city.replace(/"/g, '""')}","${r.state}","${r.ntee_code}","${r.subseccd}","${r.latest_income}"`
+    `"${(r.name || '').replace(/"/g, '""')}","${r.ein}","${r.city.replace(/"/g, '""')}","${r.state}","${r.ntee_code}","${r.category}","${r.subseccd}","${r.latest_income}"`
   ).join('\n');
 
   fs.writeFileSync('results-us.csv', csv);

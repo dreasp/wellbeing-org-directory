@@ -1,93 +1,74 @@
 /**
- * UK Mental Health Org Finder
- * Searches Companies House (free, official UK gov API) for active companies
- * matching mental health / wellbeing keywords.
+ * UK Healthcare & Social Services Org Finder
+ * Searches Companies House using SIC codes (industry classification) instead
+ * of name keywords - this catches hospitals, clinics, and care providers
+ * regardless of what they're named (e.g. "Priory Group" wouldn't match a
+ * "mental health" keyword search, but it will match SIC code 86101/87200).
  *
  * Setup:
  * 1. Get a free API key: https://developer.company-information.service.gov.uk/
- *    (Register -> "Create an application" -> copy the API key)
  * 2. Run: npm install axios
  * 3. Set your API key below or as an env var: COMPANIES_HOUSE_API_KEY
  * 4. Run: node find-companies.js
  *
- * Output: writes results to results.csv in this folder
+ * Output: results.csv in this folder
  */
 
 const axios = require('axios');
 const fs = require('fs');
 
 const API_KEY = process.env.COMPANIES_HOUSE_API_KEY || '16064bb3-3147-403d-a765-bb6158fd1472';
-const BASE_URL = 'https://api.company-information.service.gov.uk';
+const ADVANCED_SEARCH_URL = 'https://api.company-information.service.gov.uk/advanced-search/companies';
 
-// Keywords to search for in company names
-const KEYWORDS = [
-  'mental health',
-  'wellbeing',
-  'counselling',
-  'psychotherapy',
-  'mind support',
-  'therapy services',
-  'psychiatric hospital',
-  'mental health hospital',
-  'mental health clinic',
-  'counselling clinic',
-  'social work',
-  'social care',
-  'crisis support',
-  'crisis intervention',
-  'addiction treatment',
-  'substance misuse',
-  'psychological services',
-  'clinical psychology'
-];
+// SIC codes covering healthcare and social work broadly - not name-dependent
+const SIC_CODES = {
+  '86101': 'Hospital activities',
+  '86102': 'Medical nursing home activities',
+  '86210': 'General medical practice',
+  '86220': 'Specialist medical practice',
+  '86900': 'Other human health activities',
+  '87100': 'Residential nursing care',
+  '87200': 'Residential care - learning difficulties/mental health/substance abuse',
+  '87300': 'Residential care - elderly and disabled',
+  '87900': 'Other residential care',
+  '88100': 'Social work without accommodation - elderly/disabled',
+  '88990': 'Other social work without accommodation'
+};
 
-// Only keep companies matching these SIC codes (mental health / social work / human health)
-const RELEVANT_SIC_CODES = ['88990', '86900', '87300', '86210', '86220'];
-
-async function searchCompanies(keyword) {
+async function searchBySicCode(sicCode) {
   const results = [];
   let startIndex = 0;
-  const itemsPerPage = 100;
+  const size = 100;
 
   while (true) {
     try {
-      const response = await axios.get(`${BASE_URL}/search/companies`, {
+      const response = await axios.get(ADVANCED_SEARCH_URL, {
         params: {
-          q: keyword,
-          items_per_page: itemsPerPage,
+          sic_codes: sicCode,
+          company_status: 'active',
+          size,
           start_index: startIndex
         },
-        auth: {
-          username: API_KEY,
-          password: ''
-        }
+        auth: { username: API_KEY, password: '' }
       });
 
       const items = response.data.items || [];
       if (items.length === 0) break;
 
       results.push(...items);
-      startIndex += itemsPerPage;
+      startIndex += size;
 
-      // Companies House caps total results around 400 per query; stop if we've hit the ceiling
-      if (startIndex >= (response.data.total_results || 0)) break;
-      if (startIndex >= 400) break;
+      if (startIndex >= (response.data.hits || 0)) break;
+      if (startIndex >= 3000) break; // reasonable cap per SIC code
 
-      // Be polite to the API (rate limit is 600 requests / 5 min)
       await new Promise(r => setTimeout(r, 300));
     } catch (err) {
-      console.error(`Error searching "${keyword}":`, err.response?.data || err.message);
+      console.error(`Error searching SIC ${sicCode}:`, err.response?.data?.error || err.message);
       break;
     }
   }
 
   return results;
-}
-
-function isRelevant(company) {
-  // Only keep active companies
-  if (company.company_status !== 'active') return false;
-  return true;
 }
 
 async function main() {
@@ -96,21 +77,23 @@ async function main() {
     process.exit(1);
   }
 
-  const seen = new Map(); // dedupe by company_number
+  const seen = new Map();
 
-  for (const keyword of KEYWORDS) {
-    console.log(`Searching: "${keyword}"...`);
-    const items = await searchCompanies(keyword);
-    console.log(`  Found ${items.length} raw matches`);
+  for (const [code, label] of Object.entries(SIC_CODES)) {
+    console.log(`Searching SIC ${code} (${label})...`);
+    const items = await searchBySicCode(code);
+    console.log(`  Found ${items.length} companies`);
 
     for (const company of items) {
-      if (!isRelevant(company)) continue;
-      if (!seen.has(company.company_number)) {
-        seen.set(company.company_number, {
-          name: company.title,
-          company_number: company.company_number,
-          status: company.company_status,
-          address: company.address_snippet || '',
+      const number = company.company_number;
+      if (!seen.has(number)) {
+        seen.set(number, {
+          name: company.company_name || company.title,
+          company_number: number,
+          status: company.company_status || 'active',
+          address: formatAddress(company.registered_office_address),
+          sic_code: code,
+          sic_label: label,
           date_of_creation: company.date_of_creation || ''
         });
       }
@@ -118,16 +101,22 @@ async function main() {
   }
 
   const rows = Array.from(seen.values());
-  console.log(`\nTotal unique active companies found: ${rows.length}`);
+  console.log(`\nTotal unique active organizations found: ${rows.length}`);
 
-  // Write CSV
-  const header = 'Name,Company Number,Status,Address,Date of Creation\n';
+  const header = 'Name,Company Number,Status,Address,SIC Code,Category,Date of Creation\n';
   const csv = header + rows.map(r =>
-    `"${r.name.replace(/"/g, '""')}","${r.company_number}","${r.status}","${r.address.replace(/"/g, '""')}","${r.date_of_creation}"`
+    `"${(r.name || '').replace(/"/g, '""')}","${r.company_number}","${r.status}","${r.address.replace(/"/g, '""')}","${r.sic_code}","${r.sic_label}","${r.date_of_creation}"`
   ).join('\n');
 
   fs.writeFileSync('results.csv', csv);
   console.log('Saved to results.csv');
+}
+
+function formatAddress(addr) {
+  if (!addr) return '';
+  return [addr.address_line_1, addr.address_line_2, addr.locality, addr.region, addr.postal_code]
+    .filter(Boolean)
+    .join(', ');
 }
 
 main();

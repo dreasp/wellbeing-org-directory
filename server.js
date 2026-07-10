@@ -103,6 +103,42 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
+// PATCH /api/organizations/:id - edit name/website/category when data is wrong
+app.patch('/api/organizations/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, website, category, city } = req.body;
+
+    const fields = [];
+    const values = [];
+    let i = 1;
+
+    if (name !== undefined) { fields.push(`name = $${i++}`); values.push(name); }
+    if (website !== undefined) { fields.push(`website = $${i++}`); values.push(website); }
+    if (category !== undefined) { fields.push(`category = $${i++}`); values.push(category); }
+    if (city !== undefined) { fields.push(`city = $${i++}`); values.push(city); }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ error: 'No fields provided to update' });
+    }
+
+    values.push(id);
+    const result = await pool.query(
+      `UPDATE organizations SET ${fields.join(', ')} WHERE id = $${i} RETURNING *`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Organization not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update organization' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`API running at http://localhost:${PORT}`);
 });
