@@ -212,6 +212,157 @@
     border-color: var(--accent);
   }
 
+  .page-jump {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .page-jump-input {
+    width: 60px;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  #pageJumpGo {
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: var(--card);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+  }
+
+  #pageJumpGo:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .row-actions {
+    white-space: nowrap;
+    text-align: right;
+  }
+
+  .edit-btn, .save-btn, .cancel-btn {
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    color: var(--ink);
+    margin-left: 4px;
+  }
+
+  .edit-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .save-btn {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  .save-btn:hover {
+    background: #2E4A3E;
+  }
+
+  .cancel-btn:hover {
+    border-color: #A83B3B;
+    color: #A83B3B;
+  }
+
+  .edit-input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    font-size: 13px;
+    font-family: inherit;
+    background: var(--card);
+  }
+
+  .checkbox-cell {
+    width: 32px;
+    text-align: center;
+  }
+
+  .checkbox-cell input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+
+  .delete-btn {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 3px;
+  }
+
+  .delete-btn:hover {
+    background: #F5DEDE;
+    color: #A83B3B;
+  }
+
+  .bulk-bar {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: var(--bg);
+    padding: 14px 20px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    z-index: 100;
+  }
+
+  .bulk-delete-btn, .bulk-cancel-btn {
+    padding: 8px 14px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+  }
+
+  .bulk-delete-btn {
+    background: #A83B3B;
+    color: white;
+  }
+
+  .bulk-delete-btn:hover {
+    background: #8E2F2F;
+  }
+
+  .bulk-cancel-btn {
+    background: transparent;
+    color: var(--bg);
+    border: 1px solid #555;
+  }
+
+  .bulk-cancel-btn:hover {
+    border-color: var(--bg);
+  }
+
   [contenteditable="true"] {
     cursor: text;
     transition: background 0.3s;
@@ -293,9 +444,18 @@
 
   <div id="tableContainer"></div>
 
+  <div class="bulk-bar" id="bulkBar" style="display:none;">
+    <span id="bulkCount"></span>
+    <button class="bulk-delete-btn" onclick="bulkDelete()">Delete selected</button>
+    <button class="bulk-cancel-btn" onclick="clearSelection()">Cancel</button>
+  </div>
+
   <div class="pagination" id="paginationContainer" style="display:none;">
     <button id="prevBtn">&larr; Previous</button>
-    <span id="pageLabel"></span>
+    <span class="page-jump">
+      Page <input type="number" id="pageJumpInput" min="1" class="page-jump-input"> of <span id="pageJumpTotal"></span>
+      <button id="pageJumpGo">Go</button>
+    </span>
     <button id="nextBtn">Next &rarr;</button>
   </div>
 </main>
@@ -367,13 +527,18 @@
 
       const rows = data.organizations.map(org => `
         <tr data-id="${org.id}">
+          <td class="checkbox-cell"><input type="checkbox" class="row-check" data-id="${org.id}"></td>
           <td>
-            <div class="org-name" contenteditable="true" data-field="name" data-id="${org.id}">${escapeHtml(org.name)}</div>
+            <div class="org-name" data-field="name" data-id="${org.id}">${escapeHtml(org.name)}</div>
             <div class="org-meta">${escapeHtml(org.registry_id || '')} &middot; ${escapeHtml(org.registry_source || '')}</div>
           </td>
           <td><span class="badge">${escapeHtml(org.country)}</span></td>
-          <td contenteditable="true" data-field="city" data-id="${org.id}">${escapeHtml(org.city || org.region || '')}</td>
-          <td contenteditable="true" data-field="website" data-id="${org.id}" class="editable-site">${escapeHtml(org.website || 'Click to add website')}</td>
+          <td class="editable-field" data-field="city" data-id="${org.id}">${escapeHtml(org.city || org.region || '')}</td>
+          <td class="editable-field editable-site" data-field="website" data-id="${org.id}">${org.website ? `<a class="site-link" href="${escapeHtml(org.website)}" target="_blank" rel="noopener">${escapeHtml(org.website)}</a>` : '<span class="org-meta">No website found</span>'}</td>
+          <td class="row-actions">
+            <button class="edit-btn" data-id="${org.id}" title="Edit this entry">Edit</button>
+            <button class="delete-btn" data-id="${org.id}" title="Delete this entry">&times;</button>
+          </td>
         </tr>
       `).join('');
 
@@ -381,22 +546,27 @@
         <table>
           <thead>
             <tr>
+              <th class="checkbox-cell"><input type="checkbox" id="selectAll" title="Select all on this page"></th>
               <th>Organization</th>
               <th>Country</th>
               <th>Location</th>
               <th>Website</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>
-        <p class="edit-hint">Click any name, location, or website to edit it directly. Changes save automatically when you click away.</p>
       `;
 
       attachEditListeners();
+      attachDeleteListeners();
+      attachSelectionListeners();
 
       const pagination = document.getElementById('paginationContainer');
       pagination.style.display = 'flex';
-      document.getElementById('pageLabel').textContent = `${data.page} / ${data.totalPages}`;
+      document.getElementById('pageJumpInput').value = data.page;
+      document.getElementById('pageJumpInput').max = data.totalPages;
+      document.getElementById('pageJumpTotal').textContent = data.totalPages.toLocaleString();
       document.getElementById('prevBtn').disabled = data.page <= 1;
       document.getElementById('nextBtn').disabled = data.page >= data.totalPages;
 
@@ -406,36 +576,150 @@
     }
   }
 
-  function attachEditListeners() {
-    document.querySelectorAll('[contenteditable="true"]').forEach(cell => {
-      cell.addEventListener('blur', async () => {
-        const id = cell.dataset.id;
-        const field = cell.dataset.field;
-        const value = cell.textContent.trim();
+  function attachDeleteListeners() {
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const row = btn.closest('tr');
+        const name = row.querySelector('.org-name').textContent;
+
+        if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
 
         try {
-          const res = await fetch(`${API_BASE}/api/organizations/${id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ [field]: value })
-          });
+          const res = await fetch(`${API_BASE}/api/organizations/${id}`, { method: 'DELETE' });
           if (res.ok) {
-            cell.style.background = 'var(--accent-soft)';
-            setTimeout(() => { cell.style.background = ''; }, 600);
+            row.style.opacity = '0.3';
+            setTimeout(() => loadResults(), 300);
           }
         } catch (err) {
-          console.error('Failed to save edit', err);
-        }
-      });
-
-      // Enter key saves and moves on, instead of adding a line break
-      cell.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          cell.blur();
+          console.error('Failed to delete', err);
         }
       });
     });
+  }
+
+  function attachSelectionListeners() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.row-check');
+
+    selectAll.addEventListener('change', () => {
+      checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
+      updateBulkBar();
+    });
+
+    checkboxes.forEach(cb => {
+      cb.addEventListener('change', updateBulkBar);
+    });
+  }
+
+  function updateBulkBar() {
+    const checked = document.querySelectorAll('.row-check:checked');
+    const bar = document.getElementById('bulkBar');
+
+    if (checked.length === 0) {
+      bar.style.display = 'none';
+      return;
+    }
+
+    bar.style.display = 'flex';
+    document.getElementById('bulkCount').textContent =
+      `${checked.length} selected`;
+  }
+
+  function clearSelection() {
+    document.querySelectorAll('.row-check').forEach(cb => { cb.checked = false; });
+    const selectAll = document.getElementById('selectAll');
+    if (selectAll) selectAll.checked = false;
+    document.getElementById('bulkBar').style.display = 'none';
+  }
+
+  async function bulkDelete() {
+    const checked = Array.from(document.querySelectorAll('.row-check:checked'));
+    const ids = checked.map(cb => cb.dataset.id);
+
+    if (ids.length === 0) return;
+    if (!confirm(`Delete ${ids.length} selected organizations? This cannot be undone.`)) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/organizations/bulk-delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids })
+      });
+      if (res.ok) {
+        document.getElementById('bulkBar').style.display = 'none';
+        loadResults();
+      }
+    } catch (err) {
+      console.error('Failed to bulk delete', err);
+    }
+  }
+
+  function attachEditListeners() {
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => enterEditMode(btn.dataset.id));
+    });
+  }
+
+  function enterEditMode(id) {
+    const row = document.querySelector(`tr[data-id="${id}"]`);
+    const nameCell = row.querySelector('.org-name');
+    const cityCell = row.querySelector('[data-field="city"]');
+    const siteCell = row.querySelector('[data-field="website"]');
+    const editBtn = row.querySelector('.edit-btn');
+
+    const currentName = nameCell.textContent.trim();
+    const currentCity = cityCell.textContent.trim();
+    const currentSite = siteCell.querySelector('a') ? siteCell.querySelector('a').href : '';
+
+    nameCell.innerHTML = `<input type="text" class="edit-input edit-name" value="${escapeAttr(currentName)}">`;
+    cityCell.innerHTML = `<input type="text" class="edit-input" value="${escapeAttr(currentCity)}">`;
+    siteCell.innerHTML = `<input type="text" class="edit-input" placeholder="https://..." value="${escapeAttr(currentSite)}">`;
+
+    editBtn.textContent = 'Save';
+    editBtn.classList.add('save-btn');
+    editBtn.onclick = () => saveEdit(id, row);
+
+    // Add a cancel button next to Save
+    if (!row.querySelector('.cancel-btn')) {
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.className = 'cancel-btn';
+      cancelBtn.onclick = () => loadResults();
+      editBtn.insertAdjacentElement('afterend', cancelBtn);
+    }
+
+    row.querySelector('.edit-name').focus();
+  }
+
+  async function saveEdit(id, row) {
+    const nameInput = row.querySelector('.org-name .edit-input') || row.querySelector('[data-field="name"] input');
+    const cityInput = row.querySelector('[data-field="city"] input');
+    const siteInput = row.querySelector('[data-field="website"] input');
+
+    const payload = {
+      name: nameInput.value.trim(),
+      city: cityInput.value.trim(),
+      website: siteInput.value.trim()
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/api/organizations/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        loadResults();
+      }
+    } catch (err) {
+      console.error('Failed to save edit', err);
+    }
+  }
+
+  function escapeAttr(str) {
+    if (!str) return '';
+    return str.replace(/"/g, '&quot;');
   }
 
   function escapeHtml(str) {
@@ -464,6 +748,23 @@
   document.getElementById('nextBtn').addEventListener('click', () => {
     currentPage++; loadResults();
   });
+
+  document.getElementById('pageJumpGo').addEventListener('click', jumpToPage);
+  document.getElementById('pageJumpInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') jumpToPage();
+  });
+
+  function jumpToPage() {
+    const input = document.getElementById('pageJumpInput');
+    const target = parseInt(input.value);
+    const max = parseInt(input.max) || 1;
+    if (target >= 1 && target <= max) {
+      currentPage = target;
+      loadResults();
+    } else {
+      input.value = currentPage;
+    }
+  }
 
   loadStats();
   loadResults();

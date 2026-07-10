@@ -139,6 +139,39 @@ app.patch('/api/organizations/:id', async (req, res) => {
   }
 });
 
+// DELETE /api/organizations/:id - remove a single junk/duplicate entry
+app.delete('/api/organizations/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('DELETE FROM organizations WHERE id = $1 RETURNING id', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Organization not found' });
+    }
+    res.json({ deleted: id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete organization' });
+  }
+});
+
+// POST /api/organizations/bulk-delete - remove multiple selected entries at once
+app.post('/api/organizations/bulk-delete', async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids must be a non-empty array' });
+    }
+    const result = await pool.query(
+      'DELETE FROM organizations WHERE id = ANY($1) RETURNING id',
+      [ids]
+    );
+    res.json({ deletedCount: result.rows.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to bulk delete' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`API running at http://localhost:${PORT}`);
 });
