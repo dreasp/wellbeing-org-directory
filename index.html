@@ -577,25 +577,8 @@
   }
 
   function attachDeleteListeners() {
-    document.querySelectorAll('.delete-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const id = btn.dataset.id;
-        const row = btn.closest('tr');
-        const name = row.querySelector('.org-name').textContent;
-
-        if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-
-        try {
-          const res = await fetch(`${API_BASE}/api/organizations/${id}`, { method: 'DELETE' });
-          if (res.ok) {
-            row.style.opacity = '0.3';
-            setTimeout(() => loadResults(), 300);
-          }
-        } catch (err) {
-          console.error('Failed to delete', err);
-        }
-      });
-    });
+    // Handled inside attachEditListeners via delegation now - kept as no-op
+    // to avoid touching the loadResults() call order elsewhere.
   }
 
   function attachSelectionListeners() {
@@ -656,44 +639,63 @@
   }
 
   function attachEditListeners() {
-    document.querySelectorAll('.edit-btn').forEach(btn => {
-      btn.addEventListener('click', () => enterEditMode(btn.dataset.id));
-    });
+    // Single delegated listener on the table container - this avoids the bug
+    // where re-attaching a listener to a button that already has one causes
+    // both the old and new handler to fire on the same click (which was
+    // silently reverting edits back to their original values on Save).
+    const container = document.getElementById('tableContainer');
+    container.onclick = async (e) => {
+      const editBtn = e.target.closest('.edit-btn');
+      const saveBtn = e.target.closest('.save-btn');
+      const cancelBtn = e.target.closest('.cancel-btn');
+      const deleteBtn = e.target.closest('.delete-btn');
+
+      if (editBtn) {
+        enterEditMode(editBtn.dataset.id);
+      } else if (saveBtn) {
+        const row = saveBtn.closest('tr');
+        await saveEdit(saveBtn.dataset.id, row);
+      } else if (cancelBtn) {
+        loadResults();
+      } else if (deleteBtn) {
+        const row = deleteBtn.closest('tr');
+        const name = row.querySelector('.org-name').textContent.trim();
+        if (!confirm(`Delete "${name || 'this entry'}"? This cannot be undone.`)) return;
+        try {
+          const res = await fetch(`${API_BASE}/api/organizations/${deleteBtn.dataset.id}`, { method: 'DELETE' });
+          if (res.ok) loadResults();
+        } catch (err) {
+          console.error('Failed to delete', err);
+        }
+      }
+    };
   }
 
   function enterEditMode(id) {
     const row = document.querySelector(`tr[data-id="${id}"]`);
-    const nameCell = row.querySelector('.org-name');
+    const nameCell = row.querySelector('[data-field="name"]');
     const cityCell = row.querySelector('[data-field="city"]');
     const siteCell = row.querySelector('[data-field="website"]');
-    const editBtn = row.querySelector('.edit-btn');
+    const actionsCell = row.querySelector('.row-actions');
 
     const currentName = nameCell.textContent.trim();
     const currentCity = cityCell.textContent.trim();
-    const currentSite = siteCell.querySelector('a') ? siteCell.querySelector('a').href : '';
+    const currentSite = siteCell.querySelector('a') ? siteCell.querySelector('a').getAttribute('href') : '';
 
-    nameCell.innerHTML = `<input type="text" class="edit-input edit-name" value="${escapeAttr(currentName)}">`;
+    nameCell.innerHTML = `<input type="text" class="edit-input" value="${escapeAttr(currentName)}">`;
     cityCell.innerHTML = `<input type="text" class="edit-input" value="${escapeAttr(currentCity)}">`;
     siteCell.innerHTML = `<input type="text" class="edit-input" placeholder="https://..." value="${escapeAttr(currentSite)}">`;
 
-    editBtn.textContent = 'Save';
-    editBtn.classList.add('save-btn');
-    editBtn.onclick = () => saveEdit(id, row);
+    actionsCell.innerHTML = `
+      <button class="save-btn" data-id="${id}">Save</button>
+      <button class="cancel-btn" data-id="${id}">Cancel</button>
+    `;
 
-    // Add a cancel button next to Save
-    if (!row.querySelector('.cancel-btn')) {
-      const cancelBtn = document.createElement('button');
-      cancelBtn.textContent = 'Cancel';
-      cancelBtn.className = 'cancel-btn';
-      cancelBtn.onclick = () => loadResults();
-      editBtn.insertAdjacentElement('afterend', cancelBtn);
-    }
-
-    row.querySelector('.edit-name').focus();
+    row.querySelector('[data-field="name"] input').focus();
   }
 
   async function saveEdit(id, row) {
-    const nameInput = row.querySelector('.org-name .edit-input') || row.querySelector('[data-field="name"] input');
+    const nameInput = row.querySelector('[data-field="name"] input');
     const cityInput = row.querySelector('[data-field="city"] input');
     const siteInput = row.querySelector('[data-field="website"] input');
 
@@ -711,9 +713,12 @@
       });
       if (res.ok) {
         loadResults();
+      } else {
+        alert('Save failed - please try again.');
       }
     } catch (err) {
       console.error('Failed to save edit', err);
+      alert('Save failed - please try again.');
     }
   }
 
