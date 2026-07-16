@@ -103,6 +103,33 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
+// POST /api/organizations - manually add a company that wasn't caught by
+// the automated registry imports. Gets a synthetic registry_id so it plays
+// nicely with the duplicate-prevention constraint on future imports.
+app.post('/api/organizations', async (req, res) => {
+  try {
+    const { name, country, city, website, category } = req.body;
+
+    if (!name || !country) {
+      return res.status(400).json({ error: 'name and country are required' });
+    }
+
+    const syntheticId = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const result = await pool.query(
+      `INSERT INTO organizations (name, country, city, website, category, registry_id, registry_source, status, visited)
+       VALUES ($1, $2, $3, $4, $5, $6, 'Manual', 'active', false)
+       RETURNING *`,
+      [name, country, city || null, website || null, category || null, syntheticId]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to add organization' });
+  }
+});
+
 // PATCH /api/organizations/:id - edit name/website/category when data is wrong
 app.patch('/api/organizations/:id', async (req, res) => {
   try {

@@ -290,6 +290,57 @@
     background: var(--card);
   }
 
+  .add-org-btn {
+    padding: 8px 14px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 12px;
+  }
+
+  .add-org-btn:hover {
+    background: #2E4A3E;
+  }
+
+  .add-org-form {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 16px;
+    margin-bottom: 20px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+
+  .add-org-form input, .add-org-form select {
+    flex: 1;
+    min-width: 140px;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 13px;
+  }
+
+  .add-org-form button {
+    padding: 8px 16px;
+    border-radius: 3px;
+    border: 1px solid var(--line);
+    cursor: pointer;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 12px;
+  }
+
+  #saveNewOrgBtn {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
   .visited-row {
     background: #FBF3D9;
   }
@@ -451,7 +502,23 @@
 
   <div class="count-line">
     <span id="resultCount">Loading...</span>
-    <span id="pageInfo"></span>
+    <button id="addOrgBtn" class="add-org-btn">+ Add Organization</button>
+  </div>
+
+  <div id="addOrgForm" class="add-org-form" style="display:none;">
+    <input type="text" id="newName" placeholder="Organization name*">
+    <select id="newCountry">
+      <option value="">Country*</option>
+      <option value="UK">UK</option>
+      <option value="US">US</option>
+      <option value="Canada">Canada</option>
+      <option value="Australia">Australia</option>
+      <option value="New Zealand">New Zealand</option>
+    </select>
+    <input type="text" id="newCity" placeholder="City">
+    <input type="text" id="newWebsite" placeholder="Website (https://...)">
+    <button id="saveNewOrgBtn">Save</button>
+    <button id="cancelNewOrgBtn">Cancel</button>
   </div>
 
   <div id="tableContainer"></div>
@@ -528,8 +595,6 @@
 
       document.getElementById('resultCount').textContent =
         `${data.total.toLocaleString()} organization${data.total === 1 ? '' : 's'} found`;
-      document.getElementById('pageInfo').textContent =
-        `Page ${data.page} of ${data.totalPages || 1}`;
 
       if (data.organizations.length === 0) {
         container.innerHTML = '<div class="empty-state">No organizations match these filters. Try broadening your search.</div>';
@@ -811,6 +876,55 @@
     } else {
       input.value = currentPage;
     }
+  }
+
+  document.getElementById('addOrgBtn').addEventListener('click', () => {
+    document.getElementById('addOrgForm').style.display = 'flex';
+    document.getElementById('newName').focus();
+  });
+
+  document.getElementById('cancelNewOrgBtn').addEventListener('click', () => {
+    document.getElementById('addOrgForm').style.display = 'none';
+    clearNewOrgForm();
+  });
+
+  document.getElementById('saveNewOrgBtn').addEventListener('click', async () => {
+    const name = document.getElementById('newName').value.trim();
+    const country = document.getElementById('newCountry').value;
+    const city = document.getElementById('newCity').value.trim();
+    const website = document.getElementById('newWebsite').value.trim();
+
+    if (!name || !country) {
+      alert('Name and country are required.');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/organizations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, country, city, website })
+      });
+
+      if (res.ok) {
+        document.getElementById('addOrgForm').style.display = 'none';
+        clearNewOrgForm();
+        currentPage = 1;
+        loadResults();
+      } else {
+        alert('Failed to add organization - please try again.');
+      }
+    } catch (err) {
+      console.error('Failed to add organization', err);
+      alert('Failed to add organization - please try again.');
+    }
+  });
+
+  function clearNewOrgForm() {
+    document.getElementById('newName').value = '';
+    document.getElementById('newCountry').value = '';
+    document.getElementById('newCity').value = '';
+    document.getElementById('newWebsite').value = '';
   }
 
   loadStats();
