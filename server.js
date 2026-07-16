@@ -107,7 +107,7 @@ app.get('/api/stats', async (req, res) => {
 app.patch('/api/organizations/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, website, category, city } = req.body;
+    const { name, website, category, city, visited } = req.body;
 
     const fields = [];
     const values = [];
@@ -117,6 +117,7 @@ app.patch('/api/organizations/:id', async (req, res) => {
     if (website !== undefined) { fields.push(`website = $${i++}`); values.push(website); }
     if (category !== undefined) { fields.push(`category = $${i++}`); values.push(category); }
     if (city !== undefined) { fields.push(`city = $${i++}`); values.push(city); }
+    if (visited !== undefined) { fields.push(`visited = $${i++}`); values.push(visited); }
 
     if (fields.length === 0) {
       return res.status(400).json({ error: 'No fields provided to update' });

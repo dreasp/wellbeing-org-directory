@@ -290,6 +290,18 @@
     background: var(--card);
   }
 
+  .visited-row {
+    background: #FBF3D9;
+  }
+
+  .visited-row:hover {
+    background: #F5EBC4;
+  }
+
+  .visited-check {
+    cursor: pointer;
+  }
+
   .checkbox-cell {
     width: 32px;
     text-align: center;
@@ -526,8 +538,11 @@
       }
 
       const rows = data.organizations.map(org => `
-        <tr data-id="${org.id}">
+        <tr data-id="${org.id}" class="${org.visited ? 'visited-row' : ''}">
           <td class="checkbox-cell"><input type="checkbox" class="row-check" data-id="${org.id}"></td>
+          <td class="checkbox-cell">
+            <input type="checkbox" class="visited-check" data-id="${org.id}" ${org.visited ? 'checked' : ''} title="Mark as visited">
+          </td>
           <td>
             <div class="org-name" data-field="name" data-id="${org.id}">${escapeHtml(org.name)}</div>
             <div class="org-meta">${escapeHtml(org.registry_id || '')} &middot; ${escapeHtml(org.registry_source || '')}</div>
@@ -547,6 +562,7 @@
           <thead>
             <tr>
               <th class="checkbox-cell"><input type="checkbox" id="selectAll" title="Select all on this page"></th>
+              <th class="checkbox-cell" title="Visited">&#10003;</th>
               <th>Organization</th>
               <th>Country</th>
               <th>Location</th>
@@ -561,6 +577,7 @@
       attachEditListeners();
       attachDeleteListeners();
       attachSelectionListeners();
+      attachVisitedListeners();
 
       const pagination = document.getElementById('paginationContainer');
       pagination.style.display = 'flex';
@@ -636,6 +653,31 @@
     } catch (err) {
       console.error('Failed to bulk delete', err);
     }
+  }
+
+  function attachVisitedListeners() {
+    document.querySelectorAll('.visited-check').forEach(cb => {
+      cb.addEventListener('change', async () => {
+        const id = cb.dataset.id;
+        const row = cb.closest('tr');
+
+        try {
+          const res = await fetch(`${API_BASE}/api/organizations/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ visited: cb.checked })
+          });
+          if (res.ok) {
+            row.classList.toggle('visited-row', cb.checked);
+          } else {
+            cb.checked = !cb.checked; // revert on failure
+          }
+        } catch (err) {
+          console.error('Failed to update visited status', err);
+          cb.checked = !cb.checked;
+        }
+      });
+    });
   }
 
   function attachEditListeners() {
