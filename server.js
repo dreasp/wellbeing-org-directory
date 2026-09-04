@@ -1,11 +1,5 @@
 /**
  * MH Org Directory API
- *
- * Setup:
- * 1. npm install express pg cors dotenv
- * 2. Make sure .env has DATABASE_URL set (same one used for import-csv.js)
- * 3. Run: node server.js
- * 4. Test in browser: http://localhost:3001/api/organizations
  */
 
 require('dotenv').config();
@@ -24,10 +18,10 @@ const pool = new Pool({
 app.use(cors());
 app.use(express.json());
 
-// GET /api/organizations?search=mind&country=UK&category=psychiatric&city=London&page=1&limit=50
+// GET /api/organizations?search=mind&country=UK&category=psychiatric&city=London&visited=true&page=1&limit=50
 app.get('/api/organizations', async (req, res) => {
   try {
-    const { search, country, category, city, page = 1, limit = 50 } = req.query;
+    const { search, country, category, city, visited, page = 1, limit = 50 } = req.query;
     const conditions = [];
     const values = [];
     let i = 1;
@@ -47,6 +41,10 @@ app.get('/api/organizations', async (req, res) => {
     if (city) {
       conditions.push(`city ILIKE $${i++}`);
       values.push(`%${city}%`);
+    }
+    if (visited !== undefined) {
+      conditions.push(`visited = $${i++}`);
+      values.push(visited === 'true');
     }
 
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -79,7 +77,6 @@ app.get('/api/organizations', async (req, res) => {
   }
 });
 
-// GET /api/countries - list of distinct countries for filter dropdown
 app.get('/api/countries', async (req, res) => {
   try {
     const result = await pool.query('SELECT DISTINCT country FROM organizations ORDER BY country');
@@ -90,7 +87,6 @@ app.get('/api/countries', async (req, res) => {
   }
 });
 
-// GET /api/stats - quick summary counts, useful for a dashboard view
 app.get('/api/stats', async (req, res) => {
   try {
     const result = await pool.query(
@@ -103,9 +99,7 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
-// POST /api/organizations - manually add a company that wasn't caught by
-// the automated registry imports. Gets a synthetic registry_id so it plays
-// nicely with the duplicate-prevention constraint on future imports.
+// POST /api/organizations - manually add a company
 app.post('/api/organizations', async (req, res) => {
   try {
     const { name, country, city, website, category } = req.body;
@@ -130,7 +124,7 @@ app.post('/api/organizations', async (req, res) => {
   }
 });
 
-// PATCH /api/organizations/:id - edit name/website/category when data is wrong
+// PATCH /api/organizations/:id
 app.patch('/api/organizations/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -167,7 +161,7 @@ app.patch('/api/organizations/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/organizations/:id - remove a single junk/duplicate entry
+// DELETE /api/organizations/:id
 app.delete('/api/organizations/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -182,7 +176,7 @@ app.delete('/api/organizations/:id', async (req, res) => {
   }
 });
 
-// POST /api/organizations/bulk-delete - remove multiple selected entries at once
+// POST /api/organizations/bulk-delete
 app.post('/api/organizations/bulk-delete', async (req, res) => {
   try {
     const { ids } = req.body;

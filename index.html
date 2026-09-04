@@ -25,10 +25,6 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  .mono {
-    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
-  }
-
   header {
     padding: 48px 32px 28px;
     border-bottom: 1px solid var(--line);
@@ -52,6 +48,7 @@
     display: flex;
     gap: 24px;
     margin-top: 18px;
+    flex-wrap: wrap;
   }
 
   .stat {
@@ -75,7 +72,7 @@
     display: grid;
     grid-template-columns: 2fr 1fr 1fr 1fr;
     gap: 12px;
-    margin-bottom: 28px;
+    margin-bottom: 16px;
   }
 
   .field label {
@@ -102,6 +99,29 @@
   input:focus, select:focus {
     outline: none;
     border-color: var(--accent);
+  }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 28px;
+  }
+
+  .toggle-row label {
+    font-size: 13px;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    color: var(--ink-soft);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .toggle-row input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
   }
 
   .count-line {
@@ -290,6 +310,91 @@
     background: var(--card);
   }
 
+  .checkbox-cell {
+    width: 32px;
+    text-align: center;
+  }
+
+  .checkbox-cell input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+
+  .delete-btn {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 3px;
+  }
+
+  .delete-btn:hover {
+    background: #F5DEDE;
+    color: #A83B3B;
+  }
+
+  .visited-row {
+    background: #FBF3D9;
+  }
+
+  .visited-row:hover {
+    background: #F5EBC4;
+  }
+
+  .visited-check {
+    cursor: pointer;
+  }
+
+  .bulk-bar {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: var(--bg);
+    padding: 14px 20px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    z-index: 100;
+  }
+
+  .bulk-delete-btn, .bulk-cancel-btn {
+    padding: 8px 14px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+  }
+
+  .bulk-delete-btn {
+    background: #A83B3B;
+    color: white;
+  }
+
+  .bulk-delete-btn:hover {
+    background: #8E2F2F;
+  }
+
+  .bulk-cancel-btn {
+    background: transparent;
+    color: var(--bg);
+    border: 1px solid #555;
+  }
+
+  .bulk-cancel-btn:hover {
+    border-color: var(--bg);
+  }
+
   .add-org-btn {
     padding: 8px 14px;
     border: 1px solid var(--accent);
@@ -339,114 +444,6 @@
     background: var(--accent);
     color: white;
     border-color: var(--accent);
-  }
-
-  .visited-row {
-    background: #FBF3D9;
-  }
-
-  .visited-row:hover {
-    background: #F5EBC4;
-  }
-
-  .visited-check {
-    cursor: pointer;
-  }
-
-  .checkbox-cell {
-    width: 32px;
-    text-align: center;
-  }
-
-  .checkbox-cell input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-  }
-
-  .delete-btn {
-    background: none;
-    border: none;
-    color: var(--ink-soft);
-    font-size: 20px;
-    line-height: 1;
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 3px;
-  }
-
-  .delete-btn:hover {
-    background: #F5DEDE;
-    color: #A83B3B;
-  }
-
-  .bulk-bar {
-    position: fixed;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--ink);
-    color: var(--bg);
-    padding: 14px 20px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
-    font-size: 13px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-    z-index: 100;
-  }
-
-  .bulk-delete-btn, .bulk-cancel-btn {
-    padding: 8px 14px;
-    border-radius: 4px;
-    border: none;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 13px;
-  }
-
-  .bulk-delete-btn {
-    background: #A83B3B;
-    color: white;
-  }
-
-  .bulk-delete-btn:hover {
-    background: #8E2F2F;
-  }
-
-  .bulk-cancel-btn {
-    background: transparent;
-    color: var(--bg);
-    border: 1px solid #555;
-  }
-
-  .bulk-cancel-btn:hover {
-    border-color: var(--bg);
-  }
-
-  [contenteditable="true"] {
-    cursor: text;
-    transition: background 0.3s;
-    border-radius: 2px;
-  }
-
-  [contenteditable="true"]:hover {
-    background: var(--accent-soft);
-  }
-
-  [contenteditable="true"]:focus {
-    outline: 2px solid var(--accent);
-    background: var(--card);
-  }
-
-  .edit-hint {
-    text-align: center;
-    color: var(--ink-soft);
-    font-size: 12px;
-    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
-    padding-top: 16px;
   }
 
   .loading {
@@ -500,6 +497,13 @@
     </div>
   </div>
 
+  <div class="toggle-row">
+    <label>
+      <input type="checkbox" id="visitedOnly">
+      Show only organizations I've highlighted (visited)
+    </label>
+  </div>
+
   <div class="count-line">
     <span id="resultCount">Loading...</span>
     <button id="addOrgBtn" class="add-org-btn">+ Add Organization</button>
@@ -514,6 +518,7 @@
       <option value="Canada">Canada</option>
       <option value="Australia">Australia</option>
       <option value="New Zealand">New Zealand</option>
+      <option value="Ireland">Ireland</option>
     </select>
     <input type="text" id="newCity" placeholder="City">
     <input type="text" id="newWebsite" placeholder="Website (https://...)">
@@ -540,7 +545,6 @@
 </main>
 
 <script>
-  // Live backend URL on Render.
   const API_BASE = 'https://wellbeing-org-directory.onrender.com';
 
   let currentPage = 1;
@@ -573,11 +577,13 @@
     const country = document.getElementById('country').value;
     const category = document.getElementById('category').value;
     const city = document.getElementById('city').value.trim();
+    const visitedOnly = document.getElementById('visitedOnly').checked;
 
     if (search) params.set('search', search);
     if (country) params.set('country', country);
     if (category) params.set('category', category);
     if (city) params.set('city', city);
+    if (visitedOnly) params.set('visited', 'true');
     params.set('page', currentPage);
     params.set('limit', 30);
 
@@ -640,7 +646,6 @@
       `;
 
       attachEditListeners();
-      attachDeleteListeners();
       attachSelectionListeners();
       attachVisitedListeners();
 
@@ -658,9 +663,34 @@
     }
   }
 
-  function attachDeleteListeners() {
-    // Handled inside attachEditListeners via delegation now - kept as no-op
-    // to avoid touching the loadResults() call order elsewhere.
+  function attachVisitedListeners() {
+    document.querySelectorAll('.visited-check').forEach(cb => {
+      cb.addEventListener('change', async () => {
+        const id = cb.dataset.id;
+        const row = cb.closest('tr');
+
+        try {
+          const res = await fetch(`${API_BASE}/api/organizations/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ visited: cb.checked })
+          });
+          if (res.ok) {
+            row.classList.toggle('visited-row', cb.checked);
+            // If we're currently filtering to visited-only and someone
+            // unchecks a row, remove it from view immediately
+            if (document.getElementById('visitedOnly').checked && !cb.checked) {
+              setTimeout(() => loadResults(), 300);
+            }
+          } else {
+            cb.checked = !cb.checked;
+          }
+        } catch (err) {
+          console.error('Failed to update visited status', err);
+          cb.checked = !cb.checked;
+        }
+      });
+    });
   }
 
   function attachSelectionListeners() {
@@ -687,8 +717,7 @@
     }
 
     bar.style.display = 'flex';
-    document.getElementById('bulkCount').textContent =
-      `${checked.length} selected`;
+    document.getElementById('bulkCount').textContent = `${checked.length} selected`;
   }
 
   function clearSelection() {
@@ -720,36 +749,7 @@
     }
   }
 
-  function attachVisitedListeners() {
-    document.querySelectorAll('.visited-check').forEach(cb => {
-      cb.addEventListener('change', async () => {
-        const id = cb.dataset.id;
-        const row = cb.closest('tr');
-
-        try {
-          const res = await fetch(`${API_BASE}/api/organizations/${id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ visited: cb.checked })
-          });
-          if (res.ok) {
-            row.classList.toggle('visited-row', cb.checked);
-          } else {
-            cb.checked = !cb.checked; // revert on failure
-          }
-        } catch (err) {
-          console.error('Failed to update visited status', err);
-          cb.checked = !cb.checked;
-        }
-      });
-    });
-  }
-
   function attachEditListeners() {
-    // Single delegated listener on the table container - this avoids the bug
-    // where re-attaching a listener to a button that already has one causes
-    // both the old and new handler to fire on the same click (which was
-    // silently reverting edits back to their original values on Save).
     const container = document.getElementById('tableContainer');
     container.onclick = async (e) => {
       const editBtn = e.target.closest('.edit-btn');
@@ -853,6 +853,10 @@
   document.getElementById('city').addEventListener('input', debouncedReload);
   document.getElementById('country').addEventListener('change', debouncedReload);
   document.getElementById('category').addEventListener('change', debouncedReload);
+  document.getElementById('visitedOnly').addEventListener('change', () => {
+    currentPage = 1;
+    loadResults();
+  });
 
   document.getElementById('prevBtn').addEventListener('click', () => {
     if (currentPage > 1) { currentPage--; loadResults(); }

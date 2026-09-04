@@ -1,9 +1,9 @@
 /**
  * UK Healthcare & Social Services Org Finder
  * Searches Companies House using SIC codes (industry classification) instead
- * of name keywords - this catches hospitals, clinics, and care providers
- * regardless of what they're named (e.g. "Priory Group" wouldn't match a
- * "mental health" keyword search, but it will match SIC code 86101/87200).
+ * of name keywords, restricted to genuine private-sector company types so
+ * NHS trusts, councils, and other public bodies (which don't have their own
+ * independent website/careers page) are excluded from the start.
  *
  * Setup:
  * 1. Get a free API key: https://developer.company-information.service.gov.uk/
@@ -17,10 +17,9 @@
 const axios = require('axios');
 const fs = require('fs');
 
-const API_KEY = process.env.COMPANIES_HOUSE_API_KEY || '16064bb3-3147-403d-a765-bb6158fd1472';
+const API_KEY = process.env.COMPANIES_HOUSE_API_KEY || 'PASTE_YOUR_KEY_HERE';
 const ADVANCED_SEARCH_URL = 'https://api.company-information.service.gov.uk/advanced-search/companies';
 
-// SIC codes covering healthcare and social work broadly - not name-dependent
 const SIC_CODES = {
   '86101': 'Hospital activities',
   '86102': 'Medical nursing home activities',
@@ -35,6 +34,14 @@ const SIC_CODES = {
   '88990': 'Other social work without accommodation'
 };
 
+// Only genuine standalone business entities - not royal charter bodies,
+// government departments, or other public-sector registration types
+const COMPANY_TYPES = ['ltd', 'plc', 'llp', 'private-limited-guarant-nsc'];
+
+// Extra name-based filter, since a small number of public bodies still
+// register under standard company types (e.g. NHS trading subsidiaries)
+const EXCLUDE_PATTERN = /\b(NHS|county council|borough council|city council|health board|integrated care board|ministry of)\b/i;
+
 async function searchBySicCode(sicCode) {
   const results = [];
   let startIndex = 0;
@@ -46,6 +53,7 @@ async function searchBySicCode(sicCode) {
         params: {
           sic_codes: sicCode,
           company_status: 'active',
+          company_type: COMPANY_TYPES.join(','),
           size,
           start_index: startIndex
         },
@@ -55,7 +63,8 @@ async function searchBySicCode(sicCode) {
       const items = response.data.items || [];
       if (items.length === 0) break;
 
-      results.push(...items);
+      const filtered = items.filter(c => !EXCLUDE_PATTERN.test(c.company_name || c.title || ''));
+      results.push(...filtered);
       startIndex += size;
 
       if (startIndex >= (response.data.hits || 0)) break;
@@ -63,7 +72,7 @@ async function searchBySicCode(sicCode) {
 
       await new Promise(r => setTimeout(r, 300));
     } catch (err) {
-      console.error(`Error searching SIC ${sicCode}:`, err.response?.data?.error || err.message);
+      console.error(`Error searching SIC ${sicCode}:`, err.response?.data || err.message);
       break;
     }
   }
