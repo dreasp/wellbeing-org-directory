@@ -15,8 +15,53 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json());
+
+// Password protection for the whole API.
+// Set APP_PASSWORD in Render's Environment settings, never in this file.
+const crypto = require('crypto');
+
+function passwordMatches(given, expected) {
+  const a = crypto.createHash('sha256').update(String(given || '')).digest();
+  const b = crypto.createHash('sha256').update(String(expected)).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+const failedAttempts = new Map();
+const WINDOW_MS = 15 * 60 * 1000;
+
+function tooManyFailures(ip) {
+  const entry = failedAttempts.get(ip);
+  return entry && entry.count >= 10 && Date.now() - entry.first < WINDOW_MS;
+}
+
+function recordFailure(ip) {
+  const now = Date.now();
+  const entry = failedAttempts.get(ip);
+  if (!entry || now - entry.first > WINDOW_MS) {
+    failedAttempts.set(ip, { count: 1, first: now });
+  } else {
+    entry.count++;
+  }
+}
+
+app.use('/api', (req, res, next) => {
+  const expected = process.env.APP_PASSWORD;
+  if (!expected) {
+    return res.status(500).json({ error: 'Server password is not configured' });
+  }
+  if (tooManyFailures(req.ip)) {
+    return res.status(429).json({ error: 'Too many wrong attempts, try again in 15 minutes' });
+  }
+  if (!passwordMatches(req.get('x-app-password'), expected)) {
+    recordFailure(req.ip);
+    return res.status(401).json({ error: 'Password required' });
+  }
+  failedAttempts.delete(req.ip);
+  next();
+});
 
 // GET /api/organizations?search=mind&country=UK&category=psychiatric&city=London&visited=true&page=1&limit=50
 app.get('/api/organizations', async (req, res) => {

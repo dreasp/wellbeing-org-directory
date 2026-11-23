@@ -578,6 +578,49 @@
   <script>
     const API_BASE = 'https://wellbeing-org-directory.onrender.com';
 
+    // Every request to the API carries the password. The page asks for it once
+    // per browser session and keeps it only until the tab is closed.
+    let appPassword = sessionStorage.getItem('orgDirPassword') || '';
+    let passwordPrompt = null;
+    const originalFetch = window.fetch.bind(window);
+
+    function getPassword() {
+      if (appPassword) return Promise.resolve(appPassword);
+      if (!passwordPrompt) {
+        passwordPrompt = new Promise((resolve) => {
+          setTimeout(() => {
+            appPassword = prompt('Enter the directory password:') || '';
+            passwordPrompt = null;
+            resolve(appPassword);
+          }, 0);
+        });
+      }
+      return passwordPrompt;
+    }
+
+    window.fetch = async (url, options = {}) => {
+      if (typeof url !== 'string' || !url.startsWith(API_BASE)) {
+        return originalFetch(url, options);
+      }
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const pw = await getPassword();
+        if (!pw) break;
+        const res = await originalFetch(url, {
+          ...options,
+          headers: { ...(options.headers || {}), 'x-app-password': pw }
+        });
+        if (res.status !== 401) {
+          if (res.ok) sessionStorage.setItem('orgDirPassword', pw);
+          return res;
+        }
+        if (appPassword === pw) {
+          appPassword = '';
+          sessionStorage.removeItem('orgDirPassword');
+        }
+      }
+      throw new Error('Password required');
+    };
+
     let currentPage = 1;
     let debounceTimer = null;
 
