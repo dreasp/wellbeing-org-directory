@@ -250,6 +250,69 @@ async function importIreland() {
   console.log(`  Imported/updated ${imported} Ireland organizations.\n`);
 }
 
+// Apollo does not return an industry name, so this turns its NAICS codes into
+// labels that work with the existing Category dropdown.
+function categoryFromNaics(naics) {
+  const codes = String(naics || '').split(/\s+/).filter(Boolean);
+  const has = (...prefixes) => codes.some(c => prefixes.some(p => c.startsWith(p)));
+
+  if (has('62221')) return 'psychiatric hospital, mental health';
+  if (has('62142', '62322')) return 'mental health, addiction treatment';
+  if (has('62133', '621112')) return 'mental health';
+  if (has('622')) return 'hospital';
+  if (has('6216')) return 'home health care';
+  if (has('6231', '6233', '6239')) return 'nursing and residential care';
+  if (has('6241', '6242', '6243', '6244')) return 'social services';
+  return 'healthcare';
+}
+
+async function importApollo() {
+  const file = 'apollo-us-all.csv';
+  if (!fs.existsSync(file)) {
+    console.log(`Skipping Apollo import - ${file} not found in this folder.`);
+    return;
+  }
+
+  const rows = parse(fs.readFileSync(file, 'utf8'), {
+    columns: true,
+    skip_empty_lines: true,
+    relax_quotes: true,
+    relax_column_count: true,
+    skip_records_with_error: true
+  });
+  console.log(`Importing ${rows.length} Apollo organizations from ${file}...`);
+
+  let imported = 0;
+  for (const row of rows) {
+    try {
+      await pool.query(
+        `INSERT INTO organizations (name, country, region, website, category, registry_id, registry_source, status, size_group, phone, linkedin)
+         VALUES ($1, 'US', $2, $3, $4, $5, 'Apollo', 'active', $6, $7, $8)
+         ON CONFLICT (name, country, registry_id) DO UPDATE SET
+           region = COALESCE(organizations.region, EXCLUDED.region),
+           website = COALESCE(organizations.website, EXCLUDED.website),
+           size_group = EXCLUDED.size_group,
+           phone = COALESCE(organizations.phone, EXCLUDED.phone),
+           linkedin = COALESCE(organizations.linkedin, EXCLUDED.linkedin)`,
+        [
+          row.Name,
+          row.State || '',
+          normalizeWebsite(row.Website),
+          categoryFromNaics(row.NAICS),
+          row['Apollo ID'],
+          row['Size Group'] || null,
+          row.Phone || null,
+          row.LinkedIn || null
+        ]
+      );
+      imported++;
+    } catch (err) {
+      console.error(`  Error importing "${row.Name}":`, err.message);
+    }
+  }
+  console.log(`  Imported/updated ${imported} Apollo organizations.\n`);
+}
+
 function normalizeWebsite(url) {
   if (!url) return null;
   const trimmed = url.trim();
@@ -277,6 +340,7 @@ async function main() {
   if (shouldRun(['australia', 'au'])) await importAustralia();
   if (shouldRun(['newzealand', 'nz'])) await importNZ();
   if (shouldRun(['ireland', 'ie'])) await importIreland();
+  if (shouldRun(['apollo'])) await importApollo();
 
   const { rows } = await pool.query('SELECT country, COUNT(*) FROM organizations GROUP BY country ORDER BY country');
   console.log('Current database totals:');

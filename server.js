@@ -21,7 +21,7 @@ app.use(express.json());
 // GET /api/organizations?search=mind&country=UK&category=psychiatric&city=London&visited=true&page=1&limit=50
 app.get('/api/organizations', async (req, res) => {
   try {
-    const { search, country, category, city, visited, page = 1, limit = 50 } = req.query;
+    const { search, country, category, city, visited, source, size, page = 1, limit = 50 } = req.query;
     const conditions = [];
     const values = [];
     let i = 1;
@@ -45,6 +45,15 @@ app.get('/api/organizations', async (req, res) => {
     if (visited !== undefined) {
       conditions.push(`visited = $${i++}`);
       values.push(visited === 'true');
+    }
+
+    if (source) {
+      conditions.push(`registry_source = $${i++}`);
+      values.push(source);
+    }
+    if (size) {
+      conditions.push(`size_group = $${i++}`);
+      values.push(size);
     }
 
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -84,6 +93,18 @@ app.get('/api/countries', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch countries' });
+  }
+});
+
+app.get('/api/sources', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT registry_source, COUNT(*) as count FROM organizations GROUP BY registry_source ORDER BY count DESC'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch sources' });
   }
 });
 
