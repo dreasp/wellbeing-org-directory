@@ -66,13 +66,14 @@ app.use('/api', (req, res, next) => {
 // GET /api/organizations?search=mind&country=UK&category=psychiatric&city=London&visited=true&page=1&limit=50
 app.get('/api/organizations', async (req, res) => {
   try {
-    const { search, country, category, city, visited, source, size, page = 1, limit = 50 } = req.query;
+    const { search, country, category, city, visited, source, size, hasNotes, page = 1, limit = 50 } = req.query;
     const conditions = [];
     const values = [];
     let i = 1;
 
     if (search) {
-      conditions.push(`name ILIKE $${i++}`);
+      conditions.push(`(name ILIKE $${i} OR notes ILIKE $${i})`);
+      i++;
       values.push(`%${search}%`);
     }
     if (country) {
@@ -99,6 +100,9 @@ app.get('/api/organizations', async (req, res) => {
     if (size) {
       conditions.push(`size_group = $${i++}`);
       values.push(size);
+    }
+    if (hasNotes === 'true') {
+      conditions.push(`(notes IS NOT NULL AND notes <> '')`);
     }
 
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -194,7 +198,7 @@ app.post('/api/organizations', async (req, res) => {
 app.patch('/api/organizations/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, website, category, city, visited } = req.body;
+    const { name, website, category, city, visited, notes } = req.body;
 
     const fields = [];
     const values = [];
@@ -205,6 +209,7 @@ app.patch('/api/organizations/:id', async (req, res) => {
     if (category !== undefined) { fields.push(`category = $${i++}`); values.push(category); }
     if (city !== undefined) { fields.push(`city = $${i++}`); values.push(city); }
     if (visited !== undefined) { fields.push(`visited = $${i++}`); values.push(visited); }
+    if (notes !== undefined) { fields.push(`notes = $${i++}`); values.push(notes); }
 
     if (fields.length === 0) {
       return res.status(400).json({ error: 'No fields provided to update' });

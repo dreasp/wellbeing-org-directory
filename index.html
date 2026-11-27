@@ -176,6 +176,29 @@
       font-weight: 600;
     }
 
+    .org-note {
+      margin-top: 6px;
+      padding: 6px 8px;
+      background: #FBF8EC;
+      border-left: 3px solid #D9C98A;
+      font-size: 12px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      color: var(--ink);
+    }
+
+    .edit-notes {
+      width: 100%;
+      min-height: 90px;
+      margin-top: 8px;
+      padding: 8px;
+      border: 1px solid var(--accent);
+      border-radius: 3px;
+      font-family: inherit;
+      font-size: 13px;
+      resize: vertical;
+    }
+
     .org-meta {
       font-size: 12px;
       color: var(--ink-soft);
@@ -484,7 +507,7 @@
   <main>
     <div class="filters">
       <div class="field">
-        <label for="search">Search name</label>
+        <label for="search">Search name or notes</label>
         <input type="text" id="search" placeholder="e.g. Mind, Crisis, Counselling...">
       </div>
       <div class="field">
@@ -531,6 +554,13 @@
       <label>
         <input type="checkbox" id="visitedOnly">
         Show only organizations I've highlighted (visited)
+      </label>
+    </div>
+
+    <div class="toggle-row" style="margin-top:-12px;">
+      <label>
+        <input type="checkbox" id="hasNotesOnly">
+        Show only organizations with notes
       </label>
     </div>
 
@@ -658,6 +688,7 @@
       if (category) params.set('category', category);
       if (city) params.set('city', city);
       if (visitedOnly) params.set('visited', 'true');
+      if (document.getElementById('hasNotesOnly').checked) params.set('hasNotes', 'true');
       const source = document.getElementById('source').value;
       const size = document.getElementById('size').value;
       if (source) params.set('source', source);
@@ -696,6 +727,7 @@
             <div class="org-name" data-field="name" data-id="${org.id}">${escapeHtml(org.name)}</div>
             <div class="org-meta">${escapeHtml(org.registry_id || '')} &middot; ${escapeHtml(org.registry_source || '')}</div>
             ${(() => { const bits = []; if (org.size_group) bits.push('Size ' + escapeHtml(org.size_group)); if (org.phone) bits.push(escapeHtml(org.phone)); if (org.linkedin) bits.push('<a class="site-link" href="' + escapeHtml(org.linkedin) + '" target="_blank" rel="noopener">LinkedIn</a>'); return bits.length ? '<div class="org-meta">' + bits.join(' &middot; ') + '</div>' : ''; })()}
+            ${org.notes ? `<div class="org-note">${escapeHtml(org.notes)}</div>` : ''}
           </td>
           <td><span class="badge">${escapeHtml(org.country)}</span></td>
           <td class="editable-field" data-field="city" data-id="${org.id}">${escapeHtml(org.city || org.region || '')}</td>
@@ -877,6 +909,17 @@
       <button class="cancel-btn" data-id="${id}">Cancel</button>
     `;
 
+      const noteEl = row.querySelector('.org-note');
+      const notesBox = document.createElement('textarea');
+      notesBox.className = 'edit-notes';
+      notesBox.placeholder = 'Notes about this organization...';
+      notesBox.value = noteEl ? noteEl.textContent : '';
+      if (noteEl) {
+        noteEl.replaceWith(notesBox);
+      } else {
+        nameCell.closest('td').appendChild(notesBox);
+      }
+
       row.querySelector('[data-field="name"] input').focus();
     }
 
@@ -888,7 +931,8 @@
       const payload = {
         name: nameInput.value.trim(),
         city: cityInput.value.trim(),
-        website: siteInput.value.trim()
+        website: siteInput.value.trim(),
+        notes: row.querySelector('.edit-notes') ? row.querySelector('.edit-notes').value.trim() : undefined
       };
 
       try {
@@ -934,6 +978,10 @@
     document.getElementById('category').addEventListener('change', debouncedReload);
     document.getElementById('source').addEventListener('change', debouncedReload);
     document.getElementById('size').addEventListener('change', debouncedReload);
+    document.getElementById('hasNotesOnly').addEventListener('change', () => {
+      currentPage = 1;
+      loadResults();
+    });
     document.getElementById('visitedOnly').addEventListener('change', () => {
       currentPage = 1;
       loadResults();
